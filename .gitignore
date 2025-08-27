@@ -1,0 +1,19 @@
+# Ambientes Virtuais
+venv/
+.venv/
+
+# Caches do Python
+__pycache__/
+*.pyc
+
+# Ficheiros de ambiente
+.env
+
+# Ficheiros de log
+*.log
+
+# Ficheiros do sistema operativo
+.DS_Store
+
+# Notebook checkpoints
+.ipynb_checkpoints/

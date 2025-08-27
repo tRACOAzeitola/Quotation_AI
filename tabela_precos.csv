@@ -1,0 +1,46 @@
+destino,tipo_transporte,peso_maximo,volume_maximo,preco
+porto,Pequeno,500,2,250.00
+porto,Medio,1000,10,350.00
+porto,Medio C Bascula,750,18,450.00
+porto,Camiao,4000,30,650.00
+porto,Camiao Grande,9000,45,750.00
+coimbra,Pequeno,500,2,160.00
+coimbra,Medio,1000,10,250.00
+coimbra,Medio C Bascula,750,18,350.00
+coimbra,Camiao,4000,30,450.00
+coimbra,Camiao Grande,9000,45,550.00
+leiria,Pequeno,500,2,130.00
+leiria,Medio,1000,10,160.00
+leiria,Medio C Bascula,750,18,175.00
+leiria,Camiao,4000,30,250.00
+leiria,Camiao Grande,9000,45,300.00
+lisboa,Pequeno,500,2,50.00
+lisboa,Medio,1000,10,70.00
+lisboa,Medio C Bascula,750,18,90.00
+lisboa,Camiao,4000,30,150.00
+lisboa,Camiao Grande,9000,45,200.00
+margemsul,Pequeno,500,2,60.00
+margemsul,Medio,1000,10,90.00
+margemsul,Medio C Bascula,750,18,120.00
+margemsul,Camiao,4000,30,175.00
+margemsul,Camiao Grande,9000,45,225.00
+setubal,Pequeno,500,2,70.00
+setubal,Medio,1000,10,100.00
+setubal,Medio C Bascula,750,18,130.00
+setubal,Camiao,4000,30,200.00
+setubal,Camiao Grande,9000,45,250.00
+sines,Pequeno,500,2,130.00
+sines,Medio,1000,10,160.00
+sines,Medio C Bascula,750,18,175.00
+sines,Camiao,4000,30,250.00
+sines,Camiao Grande,9000,45,300.00
+faro,Pequeno,500,2,250.00
+faro,Medio,1000,10,350.00
+faro,Medio C Bascula,750,18,450.00
+faro,Camiao,4000,30,650.00
+faro,Camiao Grande,9000,45,750.00
+portimao,Pequeno,500,2,250.00
+portimao,Medio,1000,10,350.00
+portimao,Medio C Bascula,750,18,450.00
+portimao,Camiao,4000,30,650.00
+portimao,Camiao Grande,9000,45,750.00
