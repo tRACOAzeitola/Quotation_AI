@@ -1,14 +1,12 @@
 import os
 import json
-from openai import OpenAI
+import ollama
 from logger_config import logger
 
-# Inicializar o cliente da OpenAI
-client = OpenAI()
 
 def analisar_email(corpo_email):
     """
-    Usa o modelo da OpenAI para extrair dados estruturados de um e-mail.
+    Usa o modelo Llama3 via Ollama para extrair dados estruturados de um e-mail.
     """
     prompt = f"""Extraia as seguintes informações do corpo do e-mail abaixo:
     - destino (cidade ou localidade)
@@ -26,20 +24,20 @@ def analisar_email(corpo_email):
     ---
     """
 
-    logger.info("A chamar a API da OpenAI para extrair dados...")
+    logger.info("A chamar a API do Ollama com Llama3 para extrair dados...")
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+        response = ollama.chat(
+            model='llama3',
             messages=[
-                {"role": "system", "content": "Você é um assistente especialista em logística e extração de dados."},
+                {"role": "system", "content": "Você é um assistente especialista em logística e extração de dados. Retorne a resposta APENAS em formato JSON."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0,
-            response_format={"type": "json_object"}
+            format='json'
         )
-
-        dados_extraidos = json.loads(response.choices[0].message.content)
-        logger.info(f"Dados recebidos da OpenAI: {dados_extraidos}")
+        
+        # O conteúdo da mensagem já vem como um string JSON
+        dados_extraidos = json.loads(response['message']['content'])
+        logger.info(f"Dados recebidos do Ollama: {dados_extraidos}")
         
         # Garantir que os campos numéricos sejam do tipo correto
         if dados_extraidos.get("peso"):
@@ -50,14 +48,10 @@ def analisar_email(corpo_email):
         return dados_extraidos
 
     except json.JSONDecodeError as e:
-        # Captura o erro caso a OpenAI não retorne um JSON válido
-        logger.error(f"Erro ao descodificar a resposta JSON da OpenAI: {e}")
-        logger.error(f"Resposta recebida: {response.choices[0].message.content}")
+        logger.error(f"Erro ao descodificar a resposta JSON do Ollama: {e}")
+        logger.error(f"Resposta recebida: {response['message']['content']}")
         return None
     except Exception as e:
-        # Captura outros erros (ex: falha de conexão, chave de API inválida)
-        logger.error(f"Ocorreu um erro inesperado ao chamar a API da OpenAI: {e}", exc_info=True)
-        return None
-        logger.error(f"Erro ao comunicar com a API da OpenAI: {e}", exc_info=True)
+        logger.error(f"Ocorreu um erro inesperado ao chamar a API do Ollama: {e}", exc_info=True)
         # Lançar a exceção para que o RQ possa lidar com a falha
-        raise
+        raise e

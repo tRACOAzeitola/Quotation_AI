@@ -1,7 +1,5 @@
 pandas
-openai
+ollama
 python-dotenv
-python-dotenv
-openai
 rq
 redis

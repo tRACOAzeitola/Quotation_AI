@@ -19,20 +19,23 @@ class Cotador:
         if 'destino' in self.df.columns:
             self.df['destino'] = self.df['destino'].str.strip().str.lower()
 
-    def encontrar_cotacao(self, destino, peso, volume):
+    def encontrar_cotacao(self, destino, peso, volume, temperatura="ambiente"):
         destino_normalizado = destino.lower().strip()
-        logger.info(f"Buscando cotação para Destino: {destino_normalizado}, Peso: {peso}, Volume: {volume}")
+        temperatura_normalizada = temperatura.lower().strip() if isinstance(temperatura, str) else "ambiente"
+        
+        logger.info(f"Buscando cotação para Destino: {destino_normalizado}, Peso: {peso}, Volume: {volume}, Temperatura: {temperatura_normalizada}")
 
         filtro = (
             (self.df["destino"] == destino_normalizado) &
             (self.df["peso_maximo"] >= peso) &
-            (self.df["volume_maximo"] >= volume)
+            (self.df["volume_maximo"] >= volume) &
+            (self.df["temperatura"] == temperatura_normalizada)
         )
 
-        resultados = self.df[filtro].sort_values(by=["peso_maximo", "volume_maximo"])
+        resultados = self.df[filtro].sort_values(by=["preco"]) # Ordenar pelo preço para encontrar o mais barato
 
         if resultados.empty:
-            logger.warning(f"Nenhuma cotação encontrada para os critérios: Destino={destino_normalizado}, Peso={peso}, Volume={volume}")
+            logger.warning(f"Nenhuma cotação encontrada para os critérios: Destino={destino_normalizado}, Peso={peso}, Volume={volume}, Temperatura={temperatura_normalizada}")
             return None
 
         return resultados.iloc[0]
@@ -60,10 +63,14 @@ def calcular_cotacao(dados_extraidos):
             logger.warning(f"Dados insuficientes para cotação. Recebido: {dados_extraidos}")
             return None
 
+        # Usar 'ambiente' como padrão se a temperatura não for extraída
+        temperatura = dados_extraidos.get("temperatura", "ambiente")
+
         resultado = cotador_global.encontrar_cotacao(
             destino=dados_extraidos["destino"],
             peso=dados_extraidos["peso"],
-            volume=dados_extraidos["volume"]
+            volume=dados_extraidos["volume"],
+            temperatura=temperatura
         )
 
         if resultado is not None:
@@ -72,8 +79,8 @@ def calcular_cotacao(dados_extraidos):
                 'tipo_transporte': resultado['tipo_transporte'],
                 'peso': dados_extraidos['peso'],
                 'volume': dados_extraidos['volume'],
-                'preco_final': resultado['preco_final'],
-                'prazo_entrega': resultado['prazo_entrega']
+                'preco_final': resultado['preco'],  # Corrigido de 'preco_final' para 'preco'
+                'temperatura': resultado['temperatura']
             }
             return cotacao_completa
 

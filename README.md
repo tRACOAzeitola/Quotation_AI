@@ -1,178 +1,156 @@
-# Cotações AI – Assistente de Cotações Automatizado
+# Cotações AI: Assistente Inteligente para Cotações de Frete
 
-**Cotações AI** é um sistema robusto e escalável desenhado para automatizar completamente o processo de resposta a pedidos de cotação de frete recebidos por e-mail. Utilizando Inteligência Artificial para interpretação de texto e uma arquitetura de filas de mensagens, o sistema garante alta performance, fiabilidade e capacidade de processamento paralelo.
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python)
+![Redis](https://img.shields.io/badge/Redis-7.0-red?style=for-the-badge&logo=redis)
+![Ollama](https://img.shields.io/badge/Ollama-Llama3-lightgrey?style=for-the-badge&logo=ollama)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
----
-
-## 🧠 Funcionalidades Principais
-
-- 📥 **Leitura Inteligente de E-mails**: Monitoriza uma caixa de entrada via IMAP, identificando e processando apenas e-mails não lidos que contenham palavras-chave relevantes para cotações.
-- 🤖 **Extração de Dados com IA**: Emprega a API da OpenAI para analisar o conteúdo de e-mails não estruturados e extrair com precisão informações vitais como destino, peso e volume.
-- 📊 **Cálculo de Cotação Otimizado**: Compara os dados extraídos com uma tabela de preços (`tabela_precos.csv`) para encontrar a opção de transporte mais económica que cumpra os requisitos.
-- 📤 **Respostas Profissionais e Automáticas**: Envia um e-mail de resposta formatado em HTML ao cliente, contendo todos os detalhes da cotação, incluindo preço e prazo de entrega.
-- 🚀 **Arquitetura Escalável e Resiliente**: Construído sobre o padrão Produtor/Consumidor com **Redis** e **RQ (Redis Queue)**, permite o processamento de múltiplos e-mails em paralelo através de *workers* independentes e inclui um sistema de retentativas para tarefas que falhem.
-- 📝 **Logging Detalhado**: Regista todas as operações e erros significativos num ficheiro (`app.log`) e no terminal, facilitando o diagnóstico e a monitorização.
+**Cotações AI** é um sistema automatizado para processar pedidos de cotação de frete recebidos por e-mail. Utilizando um modelo de linguagem local (LLM) para interpretação de texto e uma arquitetura de filas para processamento assíncrono, o sistema oferece uma solução eficiente, privada e escalável.
 
 ---
 
-## ⚙️ Arquitetura e Fluxo de Trabalho
+## 🏛️ Arquitetura e Fluxo de Trabalho
 
-O sistema opera numa arquitetura de **Produtor/Consumidor**, ideal para cargas de trabalho assíncronas e escaláveis.
+O sistema adota o padrão **Produtor/Consumidor** para garantir desacoplamento e escalabilidade. O fluxo de trabalho é o seguinte:
 
-1.  **O Produtor (`main.py`)**: Atua como o ponto de entrada. Quando executado, ele conecta-se ao servidor de e-mail, lê as mensagens não lidas e filtra as que são relevantes. Para cada e-mail de cotação, ele cria uma **tarefa** e a publica na fila do Redis.
+```mermaid
+graph TD
+    A[📧 E-mail Recebido] --> B{main.py (Produtor)};
+    B --> |Enfileira Tarefa| C[🔄 Redis (Fila de Tarefas)];
+    C --> |Consome Tarefa| D[👷 rq worker (Consumidor)];
+    D --> E[1. Análise com IA];
+    E --> F[2. Cálculo de Cotação];
+    F --> G[3. Envio de Resposta];
+    G --> H[✅ E-mail Enviado ao Cliente];
+```
 
-2.  **A Fila (Redis)**: O Redis funciona como um intermediário de mensagens (Message Broker). Ele armazena as tarefas de forma persistente numa fila, garantindo que nenhuma se perca, mesmo que o sistema seja reiniciado.
-
-3.  **Os Consumidores (`rq worker`)**: São processos independentes que se conectam ao Redis e ficam a "escutar" por novas tarefas na fila. Assim que uma tarefa é adicionada, um *worker* disponível a consome e executa a lógica de negócio completa:
-    - **Análise**: Chama o `agent.py` para extrair os dados do e-mail.
-    - **Cotação**: Usa o `cotador.py` para calcular o preço.
-    - **Envio**: Utiliza o `email_sender.py` para enviar a resposta ao cliente.
-
-Esta separação de responsabilidades permite que o sistema seja altamente escalável. Para aumentar a capacidade de processamento, basta iniciar mais instâncias do *worker*.
+1.  **Produtor (`main.py`)**: Monitoriza a caixa de entrada, identifica e-mails de cotação e enfileira uma tarefa no Redis para cada um.
+2.  **Fila (Redis)**: Atua como *message broker*, armazenando as tarefas de forma persistente.
+3.  **Consumidor (`rq worker`)**: Processa as tarefas da fila, orquestrando a análise do e-mail, o cálculo da cotação e o envio da resposta.
 
 ---
 
-## 📋 Instalação e Configuração
+## ✨ Funcionalidades Principais
 
-Siga estes passos para configurar e executar o projeto no seu ambiente local.
+- **Processamento Assíncrono**: Utiliza **Redis** e **RQ (Redis Queue)** para gerir tarefas em segundo plano, permitindo que o sistema processe múltiplos e-mails em paralelo.
+- **IA Local e Privada**: Emprega o **Ollama** para executar o modelo **Llama 3** localmente, garantindo que os dados dos e-mails nunca saiam da sua infraestrutura.
+- **Extração de Dados**: Interpreta e-mails não estruturados para extrair informações essenciais: `destino`, `peso`, `volume` e `temperatura` (ambiente ou frio).
+- **Cálculo Otimizado**: Consulta uma tabela de preços em CSV (`tabela_precos.csv`) para encontrar a tarifa mais económica que corresponda aos requisitos do pedido.
+- **Respostas Automáticas**: Envia um e-mail de resposta profissional, formatado em HTML, com os detalhes da cotação.
+- **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+- **Linguagem**: Python 3.8+
+- **IA e LLM**: Ollama (com Llama 3)
+- **Fila de Mensagens**: Redis, RQ (Redis Queue)
+- **Manipulação de Dados**: Pandas
+- **Gestão de Dependências**: Pip, `requirements.txt`
+- **Variáveis de Ambiente**: `python-dotenv`
+
+---
+
+## 🚀 Guia de Instalação e Execução
+
+Siga estes passos para configurar e executar o projeto.
 
 ### 1. Pré-requisitos
 
 - Python 3.8 ou superior
-- Git instalado
-- Um servidor **Redis** a correr localmente.
+- Git
+- **Redis**: A correr localmente. [Ver opções de instalação](#3-configuração-do-redis).
+- **Ollama**: Instalado e em execução. Visite [ollama.com](https://ollama.com/) para descarregar.
 
 ### 2. Instalação do Projeto
 
-**Clone o repositório:**
 ```bash
-git clone <URL_DO_SEU_REPOSITORIO>
+# 1. Clone o repositório
+git clone <URL_DO_REPOSITORIO>
 cd Cotaçoes_AI
-```
 
-**Crie e ative um ambiente virtual (recomendado):**
-```bash
+# 2. Crie e ative um ambiente virtual
 python3 -m venv venv
 source venv/bin/activate
-# No Windows, use: venv\Scripts\activate
-```
+# No Windows: venv\Scripts\activate
 
-**Instale as dependências:**
-```bash
+# 3. Instale as dependências
 pip install -r requirements.txt
+
+# 4. Descarregue o modelo de IA (com o Ollama a correr)
+ollama pull llama3
 ```
 
 ### 3. Configuração do Redis
 
-Escolha **uma** das opções abaixo para instalar e executar o Redis.
-
-- **Opção A: Docker (Multiplataforma)**
+- **Docker (Recomendado)**:
   ```bash
   docker run -d -p 6379:6379 --name cotacoes-redis redis
   ```
-
-- **Opção B: Homebrew (macOS)**
+- **Homebrew (macOS)**:
   ```bash
-  brew install redis
-  brew services start redis
+  brew install redis && brew services start redis
   ```
 
 ### 4. Variáveis de Ambiente
 
-Crie o seu ficheiro de configuração a partir do exemplo:
+Crie um ficheiro `.env` a partir do exemplo e preencha as suas credenciais.
+
 ```bash
 cp .env.example .env
 ```
 
-Abra o ficheiro `.env` e preencha todas as variáveis:
+- `EMAIL_USUARIO`: O e-mail que o sistema usará.
+- `EMAIL_SENHA`: **Senha de aplicação** do e-mail (para o Gmail, não use a senha principal).
+- `EMAIL_SERVIDOR`: Servidor IMAP (ex: `imap.gmail.com`).
+- `SMTP_SERVIDOR`: Servidor SMTP (ex: `smtp.gmail.com`).
 
-- `OPENAI_API_KEY`: A sua chave secreta da API da OpenAI.
-- `EMAIL_USUARIO`: O endereço de e-mail que o sistema usará para ler e enviar mensagens.
-- `EMAIL_SENHA`: A **senha de aplicação** para a conta de e-mail. *Nota: Para serviços como o Gmail, é obrigatório gerar uma "Senha de app" específica em vez de usar a sua senha principal.*
-- `EMAIL_SERVIDOR`: O endereço do servidor IMAP para leitura (ex: `imap.gmail.com`).
-- `EMAIL_PASTA`: A pasta de e-mail a ser monitorizada (ex: `inbox`).
-- `SMTP_SERVIDOR`: O endereço do servidor SMTP para envio (ex: `smtp.gmail.com`).
-- `SMTP_PORTA`: A porta do servidor SMTP (normalmente `587` para TLS).
+### 5. Tabela de Preços
 
----
+Por motivos de privacidade, a tabela de preços não é partilhada no repositório. Crie a sua a partir do ficheiro de exemplo:
 
-## 🚀 Executando o Sistema
-
-O sistema requer dois processos a correr em simultâneo. Abra **dois terminais** no diretório do projeto.
-
-**Terminal 1: Inicie o Worker**
-
-Este processo ficará ativo, à espera de tarefas. Para maior capacidade, pode abrir mais terminais e iniciar mais workers.
 ```bash
-rq worker
+cp tabela_precos.example.csv tabela_precos.csv
 ```
 
-**Terminal 2: Execute o Produtor**
+Depois, edite `tabela_precos.csv` com as suas próprias tarifas.
 
-Este script verifica e enfileira os e-mails. Ele executa e termina, mas pode ser agendado (ex: com `cron`) para correr periodicamente.
-```bash
-python3 main.py
-```
+### 6. Execução
 
-Ao executar o `main.py`, verá no terminal do *worker* que a tarefa foi recebida e está a ser processada.
+Abra **dois terminais** no diretório do projeto.
 
----
+- **Terminal 1: Inicie o Worker**
+  ```bash
+  # Ative o ambiente virtual: source venv/bin/activate
+  rq worker
+  ```
 
-## 📁 Estrutura do Projeto
+- **Terminal 2: Execute o Produtor**
+  ```bash
+  # Ative o ambiente virtual: source venv/bin/activate
+  python3 main.py
+  ```
 
-- `main.py`: **Produtor**. Ponto de entrada que lê e-mails e enfileira as tarefas.
-- `tasks.py`: **Lógica do Worker**. Contém a função principal que orquestra a análise, cotação e envio.
-- `agent.py`: Módulo de **Inteligência Artificial**. Interage com a API da OpenAI.
-- `cotador.py`: **Motor de Cotação**. Lê a tabela de preços e calcula o valor do frete.
-- `email_reader.py`: **Leitor de E-mails**. Conecta-se ao servidor IMAP e extrai mensagens.
-- `email_sender.py`: **Remetente de E-mails**. Formata e envia a resposta via SMTP.
-- `logger_config.py`: **Configuração de Logs**. Centraliza as definições de logging para todo o projeto.
-- `tabela_precos.csv`: **Base de Dados de Preços**. Contém os dados para o cálculo das cotações.
-- `requirements.txt`: Lista de todas as dependências Python.
-- `.env.example`: Ficheiro de exemplo para as variáveis de ambiente.
-- `app.log`: **Ficheiro de Log**. Gerado automaticamente, regista todas as operações.
+O produtor irá ler os e-mails e enfileirar as tarefas, que serão processadas pelo worker.
 
 ---
 
-## 🔧 Configuração e Manutenção
+## 🗂️ Estrutura da Tabela de Preços
 
-### Tabela de Preços (`tabela_precos.csv`)
+O ficheiro `tabela_precos.csv` é o coração da lógica de cotação. A sua estrutura deve ser a seguinte:
 
-A precisão do sistema depende de uma tabela bem configurada. As colunas devem ser:
-
-- `destino`: O nome da localidade (ex: "lisboa", "porto"). Deve estar em minúsculas.
-- `peso_maximo` (kg): O peso máximo suportado por esta tarifa.
-- `volume_maximo` (m³): O volume máximo suportado.
-- `tipo_transporte`: Descrição do serviço (ex: "Normal", "Urgente", "Refrigerado").
-- `preco_final`: O custo final do serviço em euros.
-- `prazo_entrega`: O tempo de entrega estimado (ex: "24-48 horas").
-
-### Logging e Falhas
-
-- **Logs**: Verifique o ficheiro `app.log` para um histórico detalhado de todas as atividades e para depurar erros.
-- **Fila de Falhas (`failed`)**: Se uma tarefa falhar todas as retentativas, o RQ a move para a fila `failed`. Pode usar ferramentas como `rq-dashboard` para inspecionar estas falhas e decidir se as quer reenfileirar ou descartar.
-
-## 📨 Exemplo de Resposta Enviada
-
-```html
-<p>Olá,</p>
-<p>Com base nas informações fornecidas, a melhor proposta é:</p>
-<ul>
-  <li><strong>Destino:</strong> Porto</li>
-  <li><strong>Tipo de Transporte:</strong> Pequeno</li>
-  <li><strong>Peso:</strong> 450kg</li>
-  <li><strong>Volume:</strong> 8m³</li>
-  <li><strong>Preço:</strong> 250,00€</li>
-</ul>
-<p>Ficamos ao dispor para qualquer questão adicional.</p>
-<p>Melhores cumprimentos,<br><strong>Equipa de Logística</strong></p>
-```
+| Coluna          | Descrição                                         | Exemplo         |
+|-----------------|---------------------------------------------------|-----------------|
+| `destino`       | Localidade de entrega (minúsculas)                | `lisboa`        |
+| `peso_maximo`   | Peso máximo (kg) suportado por esta tarifa        | `1000`          |
+| `volume_maximo` | Volume máximo (m³) suportado                      | `10`            |
+| `tipo_transporte` | Descrição do serviço                              | `Normal`        |
+| `temperatura`   | Condição de transporte (`ambiente` ou `frio`)     | `ambiente`      |
+| `preco`         | Custo final do serviço em euros                   | `150.50`        |
 
 ---
 
-## 📌 Notas Finais
+## 📜 Licença
 
-- O sistema pode ser programado com um **agendador local** (como cron ou Task Scheduler) para execução automática periódica.
-- Para aumentar a robustez, pode adicionar logging, tratamento de exceções e histórico de pedidos.
-
----
+Este projeto está licenciado sob a Licença MIT. Consulte o ficheiro `LICENSE` para mais detalhes.

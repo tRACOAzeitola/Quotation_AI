@@ -21,7 +21,7 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
     volume = cotacao.get('volume', 'N/A')
     tipo_transporte = cotacao.get('tipo_transporte', 'N/A')
     preco_final = cotacao.get('preco_final', 0)
-    prazo_entrega = cotacao.get('prazo_entrega', 'N/A')
+    temperatura = cotacao.get('temperatura', 'ambiente').capitalize()
 
     corpo_html = f"""
     <html>
@@ -46,7 +46,7 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
                 <p><strong>Tipo de Transporte:</strong> {tipo_transporte}</p>
                 <p><strong>Peso:</strong> {peso} kg</p>
                 <p><strong>Volume:</strong> {volume} m³</p>
-                <p><strong>Prazo de Entrega Estimado:</strong> {prazo_entrega}</p>
+                <p><strong>Condição de Transporte:</strong> {temperatura}</p>
                 <hr>
                 <p class="price">Valor Final: {preco_final:.2f} €</p>
             </div>

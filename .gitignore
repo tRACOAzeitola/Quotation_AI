@@ -17,3 +17,4 @@ __pycache__/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+tabela_precos.csv
