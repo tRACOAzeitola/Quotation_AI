@@ -15,13 +15,13 @@ O sistema adota o padrão **Produtor/Consumidor** para garantir desacoplamento e
 
 ```mermaid
 graph TD
-    A[E-mail Recebido] --> B{main.py (Produtor)};
-    B --> |Enfileira Tarefa| C[🔄 Redis (Fila de Tarefas)];
-    C --> |Consome Tarefa| D[👷 rq worker (Consumidor)];
-    D --> E[1. Análise com IA];
-    E --> F[2. Cálculo de Cotação];
-    F --> G[3. Envio de Resposta];
-    G --> H[✅ E-mail Enviado ao Cliente];
+    A -->|📧 E-mail Recebido| B{main.py (Produtor)}
+    B --> |Enfileira Tarefa| C[🔄 Redis (Fila de Tarefas)]
+    C --> |Consome Tarefa| D[👷 rq worker (Consumidor)]
+    D --> E(1. Análise com IA)
+    E --> F(2. Cálculo de Cotação)
+    F --> G(3. Envio de Resposta)
+    G --> H[✅ E-mail Enviado ao Cliente]
 ```
 
 1.  **Produtor (`main.py`)**: Monitoriza a caixa de entrada, identifica e-mails de cotação e enfileira uma tarefa no Redis para cada um.
