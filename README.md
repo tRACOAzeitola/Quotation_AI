@@ -15,7 +15,7 @@ O sistema adota o padrão **Produtor/Consumidor** para garantir desacoplamento e
 
 ```mermaid
 graph TD
-    A[📧 E-mail Recebido] --> B{main.py (Produtor)};
+    A[E-mail Recebido] --> B{main.py (Produtor)};
     B --> |Enfileira Tarefa| C[🔄 Redis (Fila de Tarefas)];
     C --> |Consome Tarefa| D[👷 rq worker (Consumidor)];
     D --> E[1. Análise com IA];
