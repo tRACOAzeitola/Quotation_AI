@@ -10,6 +10,17 @@ def limpar_texto(texto):
     return "".join(c if c.isalnum() else " " for c in texto).lower()
 
 def obter_emails():
+    # Se o modo de teste estiver ativo, retorna um e-mail simulado
+    if os.getenv("APP_TEST_MODE") == "true":
+        logger.info("APP_TEST_MODE está ativo. Retornando e-mail de teste simulado.")
+        return [
+            {
+                "remetente": "cliente_teste@example.com",
+                "assunto": "Cotação ",
+                "corpo": "carga: 750kg, Porto, 10m3 e carga frigorífica."
+            }
+        ]
+
     emails_relevantes = []
     mail = None
 

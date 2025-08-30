@@ -2,26 +2,74 @@ import os
 import json
 import ollama
 from logger_config import logger
+import pandas as pd # Importar pandas aqui para ler a tabela de preços
 
+# Carregar a tabela de preços para obter os destinos válidos
+try:
+    df_precos = pd.read_csv("tabela_precos.csv")
+    destinos_validos = list(df_precos['destino'].str.strip().str.lower().unique())
+    logger.info(f"Destinos válidos carregados: {destinos_validos}")
+except Exception as e:
+    logger.error(f"Erro ao carregar destinos válidos da tabela_precos.csv: {e}", exc_info=True)
+    destinos_validos = [] # Fallback para lista vazia em caso de erro
 
 def analisar_email(corpo_email):
     """
     Usa o modelo Llama3 via Ollama para extrair dados estruturados de um e-mail.
     """
-    prompt = f"""Extraia as seguintes informações do corpo do e-mail abaixo:
-    - destino (cidade ou localidade)
-    - peso (em kg)
-    - volume (em m3)
-    - tipo_transporte (normal ou frio)
-    - temperatura (se aplicável, caso contrário "ambiente")
+    prompt = f"""""Instruções para extração de dados de e-mail:
 
-    Se alguma informação não estiver presente, retorne `null` para o campo correspondente.
-    Retorne a resposta APENAS em formato JSON.
+Objetivo: Extrair informações de transporte de carga de um e-mail e formatá-las em JSON.
+Prioridade: Garantir que o campo 'destino' seja sempre um dos valores na lista {destinos_validos}.
 
-    E-mail:
-    ---
-    {corpo_email}
-    ---
+1.  **Destino**:
+    -   Encontre a cidade ou localidade mencionada no e-mail.
+    -   O destino **DEVE** ser um dos seguintes: {destinos_validos}.
+    -   Se o destino do e-mail não estiver na lista, escolha o destino da lista que seja geograficamente mais próximo ou logicamente mais adequado.
+    -   Converta o destino para letras minúsculas.
+
+2.  **Peso**:
+    -   Identifique o peso total da carga.
+    -   A unidade padrão é quilogramas (kg). Se o peso for em 'toneladas', converta para kg (1 tonelada = 1000 kg).
+    -   Converta o valor para um número inteiro.
+
+3.  **Volume**:
+    -   Calcule o volume total da carga.
+    -   A unidade padrão é metros cúbicos (m3).
+    -   Se houver dimensões (por exemplo, `3m x 3m x 5m`), multiplique-as para obter o volume em m3.
+    -   Se o volume estiver em 'litros', converta para m3 (1000 litros = 1 m3).
+    -   Converta o valor para um número inteiro.
+
+4.  **Tipo de Transporte**:
+    -   Procure por termos que descrevam o veículo, como 'Pequeno', 'Médio', 'Camiao' ou 'Camiao Grande'.
+    -   Se não for especificado, o valor é `null`.
+
+5.  **Temperatura**:
+    -   Verifique se há menção explícita de `frio` ou `frigorífico`.
+    -   Se sim, o valor é `frio`. Caso contrário, o valor é `ambiente`.
+
+6.  **Saída Final**:
+    -   Retorne a resposta **APENAS** em formato JSON, sem qualquer texto adicional ou explicação.
+    -   Use a seguinte estrutura de chaves: `"destino": "...", "peso": "...", "volume": "...", "tipo_transporte": "...", "temperatura": "..."`.
+    -   Se uma informação não for encontrada, o valor correspondente é `null`.
+
+--- DEMONSTRATION EXAMPLE ---
+E-mail: "Preciso de transporte urgente de 8 toneladas para Albufeira, com dimensões de 3m x 3m x 5m e carga frigorífica."
+JSON Esperado:
+"destino": "faro", "peso": 8000, "volume": 45, "tipo_transporte": null, "temperatura": "frio"
+HTML Esperado:
+```html
+<p>O preço para este serviço de transporte é:</p>
+<table>
+  <tr><td>Preço</td><td>450 €</td></tr>
+</table>
+<p>Obrigado, SpeedConect.</p>
+--- FIM DO EXEMPLO ---
+
+E-mail a ser processado:
+---
+{corpo_email}
+---"
     """
 
     logger.info("A chamar a API do Ollama com Llama3 para extrair dados...")

@@ -34,7 +34,7 @@ graph TD
 
 - **Processamento Assíncrono**: Utiliza **Redis** e **RQ (Redis Queue)** para gerir tarefas em segundo plano, permitindo que o sistema processe múltiplos e-mails em paralelo.
 - **IA Local e Privada**: Emprega o **Ollama** para executar o modelo **Llama 3** localmente, garantindo que os dados dos e-mails nunca saiam da sua infraestrutura.
-- **Extração de Dados**: Interpreta e-mails não estruturados para extrair informações essenciais: `destino`, `peso`, `volume` e `temperatura` (ambiente ou frio).
+- **Extração de Dados Inteligente**: Interpreta e-mails não estruturados para extrair informações essenciais: `destino` (com inferência para destinos próximos se não estiver na tabela), `peso` (com conversão de unidades como 'toneladas' para 'kg'), `volume` (com cálculo de dimensões como '3mx3mx5m' para 'm3') e `temperatura` (ambiente ou frio).
 - **Cálculo Otimizado**: Consulta uma tabela de preços em CSV (`tabela_precos.csv`) para encontrar a tarifa mais económica que corresponda aos requisitos do pedido.
 - **Respostas Automáticas**: Envia um e-mail de resposta profissional, formatado em HTML, com os detalhes da cotação.
 - **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração.
@@ -123,6 +123,7 @@ Abra **dois terminais** no diretório do projeto.
 - **Terminal 1: Inicie o Worker**
   ```bash
   # Ative o ambiente virtual: source venv/bin/activate
+  # Para macOS, adicione: export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
   rq worker
   ```
 
@@ -133,6 +134,23 @@ Abra **dois terminais** no diretório do projeto.
   ```
 
 O produtor irá ler os e-mails e enfileirar as tarefas, que serão processadas pelo worker.
+
+### 7. Modo de Teste (Simulação de E-mails)
+
+Para testar o fluxo completo sem interagir com servidores de e-mail reais (IMAP/SMTP) ou a necessidade de e-mails em tempo real, pode ativar o `APP_TEST_MODE`.
+
+1.  **Modificar `email_reader.py`**: A função `obter_emails()` retornará um e-mail de teste hardcoded.
+2.  **Modificar `email_sender.py`**: A função `enviar_email_cotacao()` registará o HTML completo do e-mail de resposta no log, em vez de enviá-lo.
+
+Para executar no modo de teste, abra **dois terminais** no diretório do projeto e, em AMBOS os terminais, antes de ativar o ambiente virtual, defina a variável de ambiente:
+
+```bash
+export APP_TEST_MODE=true
+# Para macOS, no terminal do worker, adicione também:
+# export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+```
+
+Depois, siga os passos de `6. Execução` acima. No log do `rq worker`, procure por `HTML gerado (simulado):` para ver o conteúdo HTML da resposta do e-mail.
 
 ---
 
