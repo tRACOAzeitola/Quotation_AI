@@ -17,7 +17,9 @@ def obter_emails():
             {
                 "remetente": "cliente_teste@example.com",
                 "assunto": "Cotação ",
-                "corpo": "carga: 750kg, Porto, 10m3 e carga frigorífica."
+                "corpo": """Bom dia,
+Segue pedido de transporte, tens disponibilidade para uma carga com 900 kg e volume 30 m3 para Leiria, carga fria
+"""
             }
         ]
 

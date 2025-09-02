@@ -3,3 +3,5 @@ ollama
 python-dotenv
 rq
 redis
+fuzzywuzzy
+python-Levenshtein

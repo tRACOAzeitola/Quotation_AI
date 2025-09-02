@@ -6,7 +6,7 @@ def setup_logging():
     Configures logging to output to both console and a file ('app.log').
     """
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG) # Alterado para DEBUG para depuração
 
     # Prevent adding handlers multiple times
     if logger.hasHandlers():
