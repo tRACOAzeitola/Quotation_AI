@@ -34,10 +34,12 @@ graph TD
 
 - **Processamento Assíncrono**: Utiliza **Redis** e **RQ (Redis Queue)** para gerir tarefas em segundo plano, permitindo que o sistema processe múltiplos e-mails em paralelo.
 - **IA Local e Privada**: Emprega o **Ollama** para executar o modelo **Llama 3** localmente, garantindo que os dados dos e-mails nunca saiam da sua infraestrutura.
-- **Extração de Dados Inteligente**: Interpreta e-mails não estruturados para extrair informações essenciais: `destino` (com inferência para destinos próximos se não estiver na tabela), `peso` (com conversão de unidades como 'toneladas' para 'kg'), `volume` (com cálculo de dimensões como '3mx3mx5m' para 'm3') e `temperatura` (ambiente ou frio).
+- **Extração e Normalização Robusta de Dados**: Utiliza um LLM para extrair dados brutos (destino, peso, volume, tipo de transporte, temperatura) e funções Python avançadas para:
+  -   **Normalização de Peso e Volume**: Converte formatos variados (ex: '83 kgs', '1.5 toneladas', '112x47x80 cm') para unidades padrão (kg e m³).
+  -   **Validação e Inferência de Destino**: Prioriza cidades de entrega em Portugal/Europa. Utiliza um sistema de regras explícitas (ex: "Aeroporto de Lisboa" -> "Lisboa"), mapeamento de sinónimos (ex: "Palmela" -> "Setubal") e fuzzy matching para encontrar o destino mais próximo na tabela de preços, mesmo com erros de digitação ou variações.
 - **Cálculo Otimizado**: Consulta uma tabela de preços em CSV (`tabela_precos.csv`) para encontrar a tarifa mais económica que corresponda aos requisitos do pedido.
 - **Respostas Automáticas**: Envia um e-mail de resposta profissional, formatado em HTML, com os detalhes da cotação.
-- **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração.
+- **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração, com a opção de ativar nível `DEBUG` para depuração profunda.
 
 ---
 
@@ -151,6 +153,13 @@ export APP_TEST_MODE=true
 ```
 
 Depois, siga os passos de `6. Execução` acima. No log do `rq worker`, procure por `HTML gerado (simulado):` para ver o conteúdo HTML da resposta do e-mail.
+
+**Dica de Depuração**: Para ver logs mais detalhados, incluindo o processo de normalização e fuzzy matching, pode alterar o nível do logger para `DEBUG` em `logger_config.py` (linha `9`):
+
+```python
+# logger_config.py
+logger.setLevel(logging.DEBUG)
+```
 
 ---
 
