@@ -40,6 +40,7 @@ graph TD
 - **Cálculo Otimizado**: Consulta uma tabela de preços em CSV (`tabela_precos.csv`) para encontrar a tarifa mais económica que corresponda aos requisitos do pedido.
 - **Respostas Automáticas**: Envia um e-mail de resposta profissional, formatado em HTML, com os detalhes da cotação.
 - **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração, com a opção de ativar nível `DEBUG` para depuração profunda.
+- **RAG Local (Novo)**: Integração com **ChromaDB + LlamaIndex** para consulta de exemplos internos (e-mails/cotações anteriores) e melhoria de extrações. Tudo local, sem serviços externos. Persistência em `./rag_test_db`.
 
 ---
 
@@ -51,6 +52,7 @@ graph TD
 - **Manipulação de Dados**: Pandas
 - **Gestão de Dependências**: Pip, `requirements.txt`
 - **Variáveis de Ambiente**: `python-dotenv`
+- **RAG**: ChromaDB (persistente local) + LlamaIndex (camada de indexação/consulta) + Sentence-Transformers (embeddings locais)
 
 ---
 
@@ -83,6 +85,8 @@ pip install -r requirements.txt
 # 4. Descarregue o modelo de IA (com o Ollama a correr)
 ollama pull llama3
 ```
+
+Observação: a instalação de `sentence-transformers` irá trazer PyTorch e pode demorar em alguns ambientes.
 
 ### 3. Configuração do Redis
 
@@ -133,9 +137,21 @@ Abra **dois terminais** no diretório do projeto.
   ```bash
   # Ative o ambiente virtual: source venv/bin/activate
   python3 main.py
-  ```
+```
 
 O produtor irá ler os e-mails e enfileirar as tarefas, que serão processadas pelo worker.
+
+#### Execução do pipeline RAG (Demo Local)
+
+Para experimentar a base vetorial local com exemplos fictícios:
+
+```bash
+python3 rag_pipeline_test.py
+```
+
+Este script irá:
+- Persistir documentos de exemplo no `./rag_test_db`
+- Executar consultas e imprimir os resultados mais relevantes
 
 ### 7. Modo de Teste (Simulação de E-mails)
 
@@ -162,6 +178,37 @@ logger.setLevel(logging.DEBUG)
 ```
 
 ---
+
+## 🔍 RAG Local (ChromaDB + LlamaIndex)
+
+Esta integração permite que o sistema consulte exemplos anteriores para dar contexto ao LLM e melhorar a extração (especialmente em destinos ambíguos como aeroportos ou regiões próximas).
+
+- **Persistência**: `./rag_test_db` (pasta local)
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` (100% local)
+- **Módulo**: `rag_store.py`
+  - `ingest_email(email_text: str, metadata: dict) -> str`
+  - `retrieve_similar(query_text: str, top_k: int = 3) -> list[dict]`
+- **Demo/seed**: `rag_pipeline_test.py`
+- **Testes**: `tests/test_rag_pipeline.py`
+
+### Como o RAG é usado no pipeline real
+
+- `agent.py/analisar_email()`
+  - Recupera contexto via `retrieve_similar(corpo_email, top_k=3)`
+  - Injeta esse contexto no prompt do LLM (Ollama/Llama3) antes da extração
+
+- `tasks.py/processar_email_task()`
+  - Após envio do e-mail com sucesso, persiste o exemplo no vector store via `ingest_email()` com metadados úteis (`destino`, `peso`, `volume`, `temperatura`, `tipo_transporte`)
+
+### Variáveis de ambiente (sugestão)
+
+Opcionalmente, pode controlar o uso do RAG com uma flag (ainda não obrigatória):
+
+```
+RAG_ENABLED=true
+```
+
+Se desativado ou indisponível, o pipeline continua a funcionar sem RAG.
 
 ## 🗂️ Estrutura da Tabela de Preços
 

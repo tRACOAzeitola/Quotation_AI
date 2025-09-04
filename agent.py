@@ -6,6 +6,11 @@ import pandas as pd # Importar pandas aqui para ler a tabela de preços
 from fuzzywuzzy import fuzz
 import difflib # Adicionar import para difflib
 import re # Adicionar import para regex
+# RAG: tentativa de import; fallback se indisponível
+try:
+    from rag_store import retrieve_similar
+except Exception:
+    retrieve_similar = None
 
 # Carregar a tabela de preços para obter os destinos válidos
 try:
@@ -21,6 +26,30 @@ DESTINO_SINONIMOS = {
     "palmela": "setubal", # Exemplo: Palmela é próximo de Setúbal para fins de cotação
     # Adicione outros mapeamentos conforme necessário (ex: "cascais": "lisboa")
 }
+
+def _build_rag_context(corpo_email: str) -> str:
+    """Obtém exemplos similares do RAG e formata um contexto textual.
+    Se RAG não estiver disponível, retorna string vazia.
+    """
+    try:
+        if retrieve_similar is None:
+            return ""
+        similares = retrieve_similar(corpo_email, top_k=3)
+        if not similares:
+            return ""
+        linhas = []
+        for i, s in enumerate(similares, 1):
+            meta = s.get("metadata", {}) or {}
+            destino = meta.get("destino")
+            peso = meta.get("peso")
+            volume = meta.get("volume")
+            temperatura = meta.get("temperatura")
+            resumo = (s.get("text") or "").replace("\n", " ")[:200]
+            linhas.append(f"Ex{i}: destino={destino}, peso={peso}, volume={volume}, temperatura={temperatura} | texto='{resumo}'")
+        return "\n".join(linhas)
+    except Exception as e:
+        logger.warning(f"Falha ao obter contexto RAG: {e}")
+        return ""
 
 def destino_mais_proximo(destino_extraido_bruto, lista_destinos_validos):
     """
@@ -80,48 +109,50 @@ def normalizar_volume(volume_str):
     except ValueError:
         pass # Não é apenas um número, continua com a análise regex
 
-    # Caso já venha em m3 (ex: "0.51 m3", "45 m3")
-    match_m3 = re.search(r"([\d\.]+)\s*m3", volume_str)
+    # Caso já venha em m³ (ex: "0.51 m3", "45 m³", "0.42 m^3")
+    match_m3 = re.search(r"([\d\.]+)\s*m\s*(?:\^?3|³)", volume_str)
     if match_m3:
         return round(float(match_m3.group(1)), 2)
 
     # Caso seja em dimensões (ex: "3x3x5 metros", "3m x 3m x 5m", "300cm x 300cm x 500cm", "120 x 80 x 122 cm")
     # Regex para capturar dimensões com ou sem unidades explícitas por cada valor, e unidade final
     # Ex: "120 x 80 x 122 cm" ou "3m x 3m x 5m"
-    dim_match = re.search(r"([\d\.]+)\s*(m|cm)?\s*[xX*]\s*([\d\.]+)\s*(m|cm)?\s*[xX*]\s*([\d\.]+)\s*(m|cm)?(\s*(m|cm|metros|centimetros)|)", volume_str) # Regex ajustada: o 7º grupo sempre captura (unidade ou vazio)
+    # Importante: o grupo da unidade final é único e opcional (?: ... )? para evitar grupos extras
+    # Regra: unidade individual só é capturada se vier colada ao número (ex: "3m").
+    # Com espaço (ex: "80 cm"), considera-se unidade final para todas as dimensões.
+    dim_match = re.search(r"([\d\.]+)(m|cm)?\s*[xX*]\s*([\d\.]+)(m|cm)?\s*[xX*]\s*([\d\.]+)(m|cm)?(?:\s*(m|cm|metros|centimetros))?", volume_str)
     
     if dim_match:
-        # A regex foi ajustada para sempre retornar 7 grupos. O último grupo ('final_unit_raw') pode ser None
-        # ou uma string contendo a unidade (ex: ' cm', 'm'). Precisamos extrair a unidade real.
-        v1, u1, v2, u2, v3, u3, final_unit_raw = dim_match.groups()
+        # Agora são exatamente 7 grupos: v1,u1,v2,u2,v3,u3,final_unit
+        v1, u1, v2, u2, v3, u3, final_unit = dim_match.groups()
 
         logger.debug(f"DEBUG: dim_match.groups() -> {dim_match.groups()}") # NOVO LOG
-        logger.debug(f"DEBUG: v1={v1}, u1={u1}, v2={v2}, u2={u2}, v3={v3}, u3={u3}, final_unit_raw={final_unit_raw}") # NOVO LOG
+        logger.debug(f"DEBUG: v1={v1}, u1={u1}, v2={v2}, u2={u2}, v3={v3}, u3={u3}, final_unit={final_unit}") # NOVO LOG
 
-        # Extrai a unidade final limpa, se existir
-        final_unit = None
-        if final_unit_raw:
-            match_final_unit = re.search(r"(m|cm|metros|centimetros)", final_unit_raw)
-            if match_final_unit:
-                final_unit = match_final_unit.group(1)
-        logger.debug(f"DEBUG: final_unit -> {final_unit}") # NOVO LOG
+        # final_unit já vem limpo (m|cm|metros|centimetros) ou None -> normalizamos para base
+        unit_map = {
+            'm': 'm', 'metros': 'm',
+            'cm': 'cm', 'centimetros': 'cm', 'centímetros': 'cm',
+        }
+        final_unit_norm = unit_map.get((final_unit or '').lower())
+        logger.debug(f"DEBUG: final_unit -> {final_unit} | normalized={final_unit_norm}") # NOVO LOG
 
         valores_m = []
         try:
             # Usa a unidade final se disponível, senão assume a unidade padrão (m)
             # Ou tenta inferir das dimensões individuais se elas tiverem unidade
-            effective_unit = (final_unit or '').lower() 
+            effective_unit = (final_unit_norm or 'm')
             logger.debug(f"DEBUG: effective_unit -> {effective_unit}") # NOVO LOG
 
             for val_str, individual_unit in [(v1, u1), (v2, u2), (v3, u3)]:
                 logger.debug(f"DEBUG: Processando dimensão: val_str={val_str}, individual_unit={individual_unit}") # NOVO LOG
                 val = float(val_str)
-                unit_to_use = (individual_unit or effective_unit or 'm').lower() # Prioriza individual, depois final, senão 'm'
-                logger.debug(f"DEBUG: unit_to_use -> {unit_to_use}") # NOVO LOG
-
-                if 'cm' in unit_to_use:
+                # Normaliza a unidade individual (se houver) e decide conversão
+                unit_to_use = (individual_unit or effective_unit or 'm').lower()
+                unit_to_use = unit_map.get(unit_to_use, unit_to_use)
+                if unit_to_use == 'cm':
                     valores_m.append(val / 100)
-                else: # Assume 'm'
+                else:  # 'm' ou desconhecido (assumimos 'm')
                     valores_m.append(val)
             logger.debug(f"DEBUG: valores_m -> {valores_m}") # NOVO LOG
 
@@ -138,7 +169,13 @@ def analisar_email(corpo_email):
     Usa o modelo Llama3 via Ollama para extrair dados estruturados de um e-mail,
     e então normaliza esses dados com funções Python.
     """
+    # RAG: contexto interno semelhante
+    rag_context = _build_rag_context(corpo_email)
+
     prompt_llm = f"""Instruções para extração de dados de e-mail:
+
+Contexto interno (exemplos semelhantes de e-mails/cotações):
+{rag_context}
 
 Objetivo: Extrair informações de transporte de carga de um e-mail e formatá-las em JSON.
 Extraia os dados **exatamente como aparecem no texto**, sem tentar converter ou validar.
@@ -225,8 +262,9 @@ E-mail a ser processado:
                 logger.info(f"Destino '{destino_extraido}' mapeado para 'lisboa' via regra explícita.")
             # SEGUNDO: Verifica mapeamentos diretos de sinônimos/regiões
             elif destino_normalizado_lower in DESTINO_SINONIMOS:
-                dados_normalizados["destino"] = DESTINO_SINONIMOS[destino_normalizado_lower]
-                logger.info(f"Destino '{destino_extraido}' mapeado para '{dados_normalizados["destino"]}' via sinônimo.")
+                mapped = DESTINO_SINONIMOS[destino_normalizado_lower]
+                dados_normalizados["destino"] = mapped
+                logger.info(f"Destino '{destino_extraido}' mapeado para '{mapped}' via sinônimo.")
             # TERCEIRO: Tenta encontrar correspondência exata
             elif destino_normalizado_lower in destinos_validos:
                 dados_normalizados["destino"] = destino_normalizado_lower

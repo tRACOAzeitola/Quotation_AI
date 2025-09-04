@@ -5,3 +5,9 @@ rq
 redis
 fuzzywuzzy
 python-Levenshtein
+chromadb
+llama-index
+llama-index-vector-stores-chroma
+llama-index-embeddings-huggingface
+sentence-transformers
+numpy

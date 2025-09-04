@@ -5,6 +5,11 @@ from logger_config import logger
 from agent import analisar_email
 from cotador import calcular_cotacao
 from email_sender import enviar_email_cotacao
+# RAG: import resiliente
+try:
+    from rag_store import ingest_email as rag_ingest_email
+except Exception:
+    rag_ingest_email = None
 
 def on_failure(job, connection, type, value, traceback):
     """
@@ -55,6 +60,22 @@ def processar_email_task(email):
 
         if sucesso:
             logger.info(f"[TAREFA {job.id}] E-mail enviado com sucesso para {remetente}")
+            # Persistir exemplo no vector store (se disponível)
+            try:
+                if rag_ingest_email is not None:
+                    texto_para_ingestao = f"Assunto: {assunto}\nCorpo: {corpo}"
+                    meta = {
+                        "destino": cotacao_encontrada.get("destino"),
+                        "peso": cotacao_encontrada.get("peso"),
+                        "volume": cotacao_encontrada.get("volume"),
+                        "temperatura": cotacao_encontrada.get("temperatura"),
+                        "tipo_transporte": cotacao_encontrada.get("tipo_transporte"),
+                        "fonte": "cotacao_enviada",
+                    }
+                    rag_ingest_email(texto_para_ingestao, meta)
+                    logger.info(f"[TAREFA {job.id}] Exemplo persistido no RAG store.")
+            except Exception as e:
+                logger.warning(f"[TAREFA {job.id}] Falha ao persistir no RAG store: {e}")
         else:
             # Lança uma exceção para que a tarefa seja marcada como falha
             raise RuntimeError(f"Falha no envio do e-mail para {remetente}")

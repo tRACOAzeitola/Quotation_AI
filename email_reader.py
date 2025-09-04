@@ -18,8 +18,24 @@ def obter_emails():
                 "remetente": "cliente_teste@example.com",
                 "assunto": "Cotação ",
                 "corpo": """Bom dia,
-Segue pedido de transporte, tens disponibilidade para uma carga com 900 kg e volume 30 m3 para Leiria, carga fria
-"""
+Segue pedido de transporte, tens disponibilidade para entrega amanhã ?
+Agradecemos entrega conforme segue:
+Referências:
+Processo Abreu: P25013027
+Referência cliente: BJPX-ST10
+Carga:
+Contentor(es): TGBU9281877
+Tipo: Fruta frio
+Vols: 1
+Peso (kgs): 2780
+M3: 45
+Levante:
+Local: WARELOG
+Tit.Deposito: TD63158
+Entrega:
+Importador: AllTek Scientific   
+    Morada: Marta Palma(217500000),
+    FCUL, Porto"""
             }
         ]
 
