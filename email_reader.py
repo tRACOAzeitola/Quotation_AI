@@ -17,25 +17,12 @@ def obter_emails():
             {
                 "remetente": "cliente_teste@example.com",
                 "assunto": "Cotação ",
-                "corpo": """Bom dia,
-Segue pedido de transporte, tens disponibilidade para entrega amanhã ?
-Agradecemos entrega conforme segue:
-Referências:
-Processo Abreu: P25013027
-Referência cliente: BJPX-ST10
-Carga:
-Contentor(es): TGBU9281877
-Tipo: Fruta frio
+                "corpo": """
 Vols: 1
-Peso (kgs): 2780
-M3: 45
-Levante:
-Local: WARELOG
-Tit.Deposito: TD63158
-Entrega:
-Importador: AllTek Scientific   
-    Morada: Marta Palma(217500000),
-    FCUL, Porto"""
+Peso (kgs): 800
+M3: 5
+Entrega: Covilha
+"""
             }
         ]
 

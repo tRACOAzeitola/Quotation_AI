@@ -1,6 +1,6 @@
 # Cotações AI: Assistente Inteligente para Cotações de Frete
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python)
+![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)
 ![Redis](https://img.shields.io/badge/Redis-7.0-red?style=for-the-badge&logo=redis)
 ![Ollama](https://img.shields.io/badge/Ollama-Llama3-lightgrey?style=for-the-badge&logo=ollama)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
@@ -34,25 +34,30 @@ graph TD
 
 - **Processamento Assíncrono**: Utiliza **Redis** e **RQ (Redis Queue)** para gerir tarefas em segundo plano, permitindo que o sistema processe múltiplos e-mails em paralelo.
 - **IA Local e Privada**: Emprega o **Ollama** para executar o modelo **Llama 3** localmente, garantindo que os dados dos e-mails nunca saiam da sua infraestrutura.
-- **Extração e Normalização Robusta de Dados**: Utiliza um LLM para extrair dados brutos (destino, peso, volume, tipo de transporte, temperatura) e funções Python avançadas para:
-  -   **Normalização de Peso e Volume**: Converte formatos variados (ex: '83 kgs', '1.5 toneladas', '112x47x80 cm') para unidades padrão (kg e m³).
-  -   **Validação e Inferência de Destino**: Prioriza cidades de entrega em Portugal/Europa. Utiliza um sistema de regras explícitas (ex: "Aeroporto de Lisboa" -> "Lisboa"), mapeamento de sinónimos (ex: "Palmela" -> "Setubal") e fuzzy matching para encontrar o destino mais próximo na tabela de preços, mesmo com erros de digitação ou variações.
+- **Extração e Normalização Robusta de Dados**: Utiliza um LLM para extrair dados brutos (destino, peso, volume, tipo de transporte, temperatura) e funções Python para:
+  -  **Normalização de Peso e Volume (melhorada)**: Converte formatos variados para unidades padrão (kg e m³), incluindo:
+     - Volumes diretos: "45 m3", "0,42 m³", "0.42 m^3".
+     - Dimensões: "112x47x80 cm", "3 x 3 x 5 m", mistos como "3m x 3 x 5m".
+     - Tratamento correto de unidades finais com espaço (ex.: "... 80 cm" aplica-se às 3 dimensões).
+  -  **Destino (agora sem fuzzy matching)**: O destino extraído é mantido exatamente como no e-mail (apenas normalizado para minúsculas). Há uma regra explícita para mapear "Aeroporto de Lisboa/Lisboa Aeroporto" para "Lisboa". Caso não exista correspondência exata na tabela de preços, a lógica de fallback acontece no `cotador.py` via API (ver abaixo).
 - **Cálculo Otimizado**: Consulta uma tabela de preços em CSV (`tabela_precos.csv`) para encontrar a tarifa mais económica que corresponda aos requisitos do pedido.
+- **Fallback por Distância (Novo)**: Se não houver entrada exata na tabela para o destino, o sistema usa geocoding do destino e distância de condução a partir de "Lisboa, Portugal" e calcula o preço por km (detalhes na seção abaixo).
 - **Respostas Automáticas**: Envia um e-mail de resposta profissional, formatado em HTML, com os detalhes da cotação.
 - **Logging Detalhado**: Regista todas as operações e erros em `app.log` para fácil monitorização e depuração, com a opção de ativar nível `DEBUG` para depuração profunda.
-- **RAG Local (Novo)**: Integração com **ChromaDB + LlamaIndex** para consulta de exemplos internos (e-mails/cotações anteriores) e melhoria de extrações. Tudo local, sem serviços externos. Persistência em `./rag_test_db`.
+- **RAG Local (Opcional)**: Integração com **ChromaDB + LlamaIndex** para consulta de exemplos internos (e-mails/cotações anteriores) e melhoria de extrações. Persistência em `./rag_test_db`. Embeddings forçados a **CPU**. Se as dependências não estiverem disponíveis, existe fallback automático para um modo em memória (sem fuzzy matching), mantendo a mesma API.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Linguagem**: Python 3.8+
+- **Linguagem**: Python 3.13
 - **IA e LLM**: Ollama (com Llama 3)
 - **Fila de Mensagens**: Redis, RQ (Redis Queue)
 - **Manipulação de Dados**: Pandas
 - **Gestão de Dependências**: Pip, `requirements.txt`
 - **Variáveis de Ambiente**: `python-dotenv`
-- **RAG**: ChromaDB (persistente local) + LlamaIndex (camada de indexação/consulta) + Sentence-Transformers (embeddings locais)
+- **RAG**: ChromaDB (persistente local) + LlamaIndex (camada de indexação/consulta) + Sentence-Transformers (embeddings locais) [opcional, com fallback em memória]
+- **Fallback de distância**: Nominatim (Geocoding via HTTP) + OSRM (Driving distance) via `requests` (sem chave de API)
 
 ---
 
@@ -79,14 +84,29 @@ python3 -m venv venv
 source venv/bin/activate
 # No Windows: venv\Scripts\activate
 
-# 3. Instale as dependências
+# 3. Instale as dependências mínimas
 pip install -r requirements.txt
 
 # 4. Descarregue o modelo de IA (com o Ollama a correr)
 ollama pull llama3
 ```
 
-Observação: a instalação de `sentence-transformers` irá trazer PyTorch e pode demorar em alguns ambientes.
+Observações:
+- O RAG completo (ChromaDB/LlamaIndex + embeddings) é opcional. Caso não o instale, o sistema usa um fallback em memória para a parte de similaridade.
+- Para instalar o RAG completo em Python 3.13 (CPU), pode usar:
+
+```bash
+# PyTorch (CPU wheels)
+pip install -U torch --index-url https://download.pytorch.org/whl/cpu
+
+# Transformers + Sentence-Transformers
+pip install -U transformers
+pip install -U sentence-transformers
+
+# ChromaDB e LlamaIndex
+pip install -U chromadb
+pip install -U llama-index llama-index-vector-stores-chroma llama-index-embeddings-huggingface
+```
 
 ### 3. Configuração do Redis
 
@@ -129,7 +149,10 @@ Abra **dois terminais** no diretório do projeto.
 - **Terminal 1: Inicie o Worker**
   ```bash
   # Ative o ambiente virtual: source venv/bin/activate
-  # Para macOS, adicione: export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+  # macOS (recomendado para evitar crashes do Metal/MPS em processos forkados)
+  export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+  export PYTORCH_ENABLE_MPS_FALLBACK=1
+  export CUDA_VISIBLE_DEVICES=""
   rq worker
   ```
 
@@ -184,7 +207,7 @@ logger.setLevel(logging.DEBUG)
 Esta integração permite que o sistema consulte exemplos anteriores para dar contexto ao LLM e melhorar a extração (especialmente em destinos ambíguos como aeroportos ou regiões próximas).
 
 - **Persistência**: `./rag_test_db` (pasta local)
-- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` (100% local)
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` (100% local), executados em **CPU** para maior compatibilidade.
 - **Módulo**: `rag_store.py`
   - `ingest_email(email_text: str, metadata: dict) -> str`
   - `retrieve_similar(query_text: str, top_k: int = 3) -> list[dict]`
@@ -208,7 +231,42 @@ Opcionalmente, pode controlar o uso do RAG com uma flag (ainda não obrigatória
 RAG_ENABLED=true
 ```
 
-Se desativado ou indisponível, o pipeline continua a funcionar sem RAG.
+Se desativado ou se as dependências não estiverem instaladas, o módulo `rag_store.py` ativa automaticamente um fallback em memória que mantém a mesma API (similaridade simples por sobreposição de palavras).
+
+---
+
+## 🚚 Fallback de Preço por Distância (Nominatim + OSRM)
+
+Quando o destino extraído não existir exatamente na `tabela_precos.csv`, o `cotador.py` executa o seguinte:
+
+- Geocoding do destino e da origem fixa "Lisboa, Portugal" usando Nominatim via HTTP.
+- Cálculo da distância de condução usando o endpoint público do OSRM.
+- Cálculo do preço por km com base em faixas configuráveis em ficheiro privado.
+
+Requisitos: apenas `requests`. Não é necessária chave de API. O pedido inclui um header `User-Agent` conforme recomendado pelo Nominatim.
+
+### Configuração Privada de Preços por Km
+
+Os valores das faixas são confidenciais e não devem ser commitados no repositório. Use um ficheiro gitignored `pricing_config.json` com a seguinte estrutura:
+
+```json
+[
+  {
+    "peso_max": 500,
+    "volume_max": 2,
+    "tarifa_eur_km": 0.0,
+    "tipo_transporte": "carro (<500Kg/<2M3)"
+  }
+  // ... adicione as restantes faixas
+]
+```
+
+Passos recomendados:
+- Copie o exemplo e preencha com os valores reais (não commit):
+  ```bash
+  cp pricing_config.example.json pricing_config.json
+  ```
+- Opcionalmente, aponte para outro caminho via variável de ambiente `PRICING_CONFIG_PATH`.
 
 ## 🗂️ Estrutura da Tabela de Preços
 
@@ -224,6 +282,27 @@ O ficheiro `tabela_precos.csv` é o coração da lógica de cotação. A sua est
 | `preco`         | Custo final do serviço em euros                   | `150.50`        |
 
 ---
+
+## 🧰 Troubleshooting
+
+- **macOS: Crash envolvendo Metal/MPS (MPSLibrary ... XPC_ERROR_CONNECTION_INVALID)**
+  - Execute o worker com:
+    ```bash
+    export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+    export PYTORCH_ENABLE_MPS_FALLBACK=1
+    export CUDA_VISIBLE_DEVICES=""
+    rq worker
+    ```
+  - Os embeddings do RAG estão forçados a CPU no código (`rag_store.py`).
+
+- **ImportError: No module named 'chromadb' durante testes**
+  - O RAG é opcional. Se não quiser instalar o stack completo, o sistema usa fallback em memória automaticamente.
+  - Para instalar o stack completo no Python 3.13 (CPU), siga os comandos da secção de instalação (PyTorch CPU, transformers/sentence-transformers, ChromaDB, LlamaIndex).
+
+- **Geocoding/OSRM**
+  - Nominatim é rate-limited. Para uso intensivo, considere cachear resultados ou self-hosting.
+  - O OSRM público é best-effort. Para produção, considere self-hosting um servidor OSRM.
+
 
 ## 📜 Licença
 

@@ -3,8 +3,6 @@ import json
 import ollama
 from logger_config import logger
 import pandas as pd # Importar pandas aqui para ler a tabela de preços
-from fuzzywuzzy import fuzz
-import difflib # Adicionar import para difflib
 import re # Adicionar import para regex
 # RAG: tentativa de import; fallback se indisponível
 try:
@@ -20,12 +18,6 @@ try:
 except Exception as e:
     logger.error(f"Erro ao carregar destinos válidos da tabela_precos.csv: {e}", exc_info=True)
     destinos_validos = [] # Fallback para lista vazia em caso de erro
-
-# Mapeamento de sinónimos para destinos regionalmente próximos mas lexicalmente distantes
-DESTINO_SINONIMOS = {
-    "palmela": "setubal", # Exemplo: Palmela é próximo de Setúbal para fins de cotação
-    # Adicione outros mapeamentos conforme necessário (ex: "cascais": "lisboa")
-}
 
 def _build_rag_context(corpo_email: str) -> str:
     """Obtém exemplos similares do RAG e formata um contexto textual.
@@ -50,26 +42,6 @@ def _build_rag_context(corpo_email: str) -> str:
     except Exception as e:
         logger.warning(f"Falha ao obter contexto RAG: {e}")
         return ""
-
-def destino_mais_proximo(destino_extraido_bruto, lista_destinos_validos):
-    """
-    Encontra o destino mais próximo na lista de destinos válidos usando difflib.
-    Retorna None se não houver match acima de um cutoff.
-    """
-    # Normaliza o destino extraído para comparação
-    destino_normalizado = destino_extraido_bruto.lower().strip()
-    
-    # Usa difflib para encontrar o destino mais próximo
-    # Ajustar o cutoff para ser um pouco mais permissivo (ex: 0.6) para cobrir variações maiores.
-    # No entanto, para 'Palmela' -> 'Setubal', a similaridade lexical é baixa. Pode exigir lógica de sinônimos/região.
-    matches = difflib.get_close_matches(destino_normalizado, lista_destinos_validos, n=1, cutoff=0.6) # Cutoff ajustável
-    
-    if matches:
-        logger.info(f"Destino '{destino_extraido_bruto}' corrigido para '{matches[0]}' (fuzzy matching).")
-        return matches[0]
-    else:
-        logger.warning(f"Destino '{destino_extraido_bruto}' não encontrou correspondência válida na tabela.")
-        return None
 
 def normalizar_peso(peso_str):
     """Converte peso textual para kg"""
@@ -248,30 +220,27 @@ E-mail a ser processado:
         dados_brutos = json.loads(response['message']['content'])
         logger.info(f"Dados brutos recebidos do Ollama: {dados_brutos}")
         
-        # --- Normalização e Fuzzy Matching em Python ---
+        # --- Normalização em Python ---
         dados_normalizados = {}
 
-        # 1. Normalizar Destino
+        # 1. Normalizar Destino (sem fuzzy matching, sem sinônimos)
         destino_extraido = dados_brutos.get("destino_texto", "")
         if destino_extraido:
             destino_normalizado_lower = destino_extraido.lower().strip()
-
-            # PRIMEIRO: Mapeamento direto para termos específicos como aeroportos
-            if "aeroporto de lisboa" in destino_normalizado_lower or "lisboa aeroporto" in destino_normalizado_lower:
+            # Regra explícita: aeroporto de Lisboa mapeia para Lisboa
+            if (
+                "aeroporto de lisboa" in destino_normalizado_lower
+                or "lisboa aeroporto" in destino_normalizado_lower
+            ):
                 dados_normalizados["destino"] = "lisboa"
                 logger.info(f"Destino '{destino_extraido}' mapeado para 'lisboa' via regra explícita.")
-            # SEGUNDO: Verifica mapeamentos diretos de sinônimos/regiões
-            elif destino_normalizado_lower in DESTINO_SINONIMOS:
-                mapped = DESTINO_SINONIMOS[destino_normalizado_lower]
-                dados_normalizados["destino"] = mapped
-                logger.info(f"Destino '{destino_extraido}' mapeado para '{mapped}' via sinônimo.")
-            # TERCEIRO: Tenta encontrar correspondência exata
-            elif destino_normalizado_lower in destinos_validos:
-                dados_normalizados["destino"] = destino_normalizado_lower
-                logger.info(f"Destino '{destino_extraido}' encontrado na tabela (correspondência exata).")
             else:
-                # ÚLTIMO: Se nada anterior funcionou, tenta fuzzy matching
-                dados_normalizados["destino"] = destino_mais_proximo(destino_extraido, destinos_validos)
+                # Mantém o destino exatamente como extraído (normalizado em lower)
+                dados_normalizados["destino"] = destino_normalizado_lower
+                logger.info(
+                    "Destino mantido exatamente como extraído (sem fuzzy/sinônimos): '%s'",
+                    dados_normalizados["destino"],
+                )
         else:
             dados_normalizados["destino"] = None
             logger.warning("Destino não extraído pelo LLM.")
