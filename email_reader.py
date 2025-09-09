@@ -18,10 +18,10 @@ def obter_emails():
                 "remetente": "cliente_teste@example.com",
                 "assunto": "Cotação ",
                 "corpo": """
-Vols: 1
+Vols: Fruta
 Peso (kgs): 800
 M3: 5
-Entrega: Covilha
+Entrega: Meimoa
 """
             }
         ]

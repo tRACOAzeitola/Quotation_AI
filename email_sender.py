@@ -21,6 +21,11 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
         volume = cotacao.get('volume', 'N/A')
         tipo_transporte = cotacao.get('tipo_transporte', 'N/A')
         preco_final = cotacao.get('preco_final', 0)
+        # Arredonda para o múltiplo de 5€ mais próximo, sem casas decimais
+        try:
+            preco_display = int(round(float(preco_final) / 5.0) * 5)
+        except Exception:
+            preco_display = int(float(preco_final)) if isinstance(preco_final, (int, float)) else 0
         temperatura = cotacao.get('temperatura', 'ambiente').capitalize()
 
         corpo_html = f"""
@@ -48,7 +53,7 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
                 <p><strong>Volume:</strong> {volume} m³</p>
                 <p><strong>Condição de Transporte:</strong> {temperatura}</p>
                 <hr>
-                <p class="price">Valor Final: {preco_final:.2f} €</p>
+                <p class="price">Valor Final: {preco_display} €</p>
             </div>
             <p>Esta proposta é válida por 15 dias. Para qualquer esclarecimento ou para confirmar o serviço, estamos à sua inteira disposição.</p>
             <p>Com os melhores cumprimentos,</p>
@@ -73,6 +78,11 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
     volume = cotacao.get('volume', 'N/A')
     tipo_transporte = cotacao.get('tipo_transporte', 'N/A')
     preco_final = cotacao.get('preco_final', 0)
+    # Arredonda para o múltiplo de 5€ mais próximo, sem casas decimais
+    try:
+        preco_display = int(round(float(preco_final) / 5.0) * 5)
+    except Exception:
+        preco_display = int(float(preco_final)) if isinstance(preco_final, (int, float)) else 0
     temperatura = cotacao.get('temperatura', 'ambiente').capitalize()
 
     corpo_html = f"""
@@ -100,7 +110,7 @@ def enviar_email_cotacao(destinatario, assunto_original, cotacao):
                 <p><strong>Volume:</strong> {volume} m³</p>
                 <p><strong>Condição de Transporte:</strong> {temperatura}</p>
                 <hr>
-                <p class="price">Valor Final: {preco_final:.2f} €</p>
+                <p class="price">Valor Final: {preco_display} €</p>
             </div>
             <p>Esta proposta é válida por 15 dias. Para qualquer esclarecimento ou para confirmar o serviço, estamos à sua inteira disposição.</p>
             <p>Com os melhores cumprimentos,</p>

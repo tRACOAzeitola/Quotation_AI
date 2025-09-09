@@ -19,6 +19,15 @@ except Exception as e:
     logger.error(f"Erro ao carregar destinos válidos da tabela_precos.csv: {e}", exc_info=True)
     destinos_validos = [] # Fallback para lista vazia em caso de erro
 
+# Palavras-chave que implicam cadeia de frio, mesmo sem mencionar "frio" explicitamente
+COLD_KEYWORDS = {
+    "fruta", "frutas", "congelado", "congelados", "refrigerado", "refrigerados",
+    "gelado", "gelados", "laticinio", "laticínios", "laticinios", "lacticínios",
+    "leite", "queijo", "iogurte", "carne", "peixe", "marisco", "mariscos",
+    "pescado", "charcutaria", "farma", "farmaceutico", "farmacêutico",
+    "medicamento", "medicamentos", "vacina", "vacinas",
+}
+
 def _build_rag_context(corpo_email: str) -> str:
     """Obtém exemplos similares do RAG e formata um contexto textual.
     Se RAG não estiver disponível, retorna string vazia.
@@ -261,6 +270,19 @@ E-mail a ser processado:
         # 4. Manter Tipo de Transporte e Temperatura do LLM (sem normalização Python adicional)
         dados_normalizados["tipo_transporte"] = dados_brutos.get("tipo_transporte")
         dados_normalizados["temperatura"] = dados_brutos.get("temperatura")
+
+        # Heurística: se o e-mail mencionar produtos que exigem frio e a temperatura vier
+        # ausente ou "ambiente", força para "frio".
+        try:
+            texto_lower = (corpo_email or "").lower()
+            menciona_frio_implicito = any(k in texto_lower for k in COLD_KEYWORDS)
+            temp_atual = (dados_normalizados.get("temperatura") or "").lower() or None
+            if menciona_frio_implicito and (temp_atual is None or temp_atual == "ambiente"):
+                dados_normalizados["temperatura"] = "frio"
+                logger.info("Temperatura ajustada para 'frio' via heurística de produto (cadeia de frio).")
+        except Exception:
+            # Não interromper o fluxo por causa da heurística
+            pass
         
         logger.info(f"Dados normalizados e validados: {dados_normalizados}")
         return dados_normalizados

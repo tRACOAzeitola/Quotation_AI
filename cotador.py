@@ -49,9 +49,9 @@ class Cotador:
         logger.warning(
             f"Nenhuma cotação exata encontrada na tabela. A tentar fallback via API (Nominatim + OSRM) para destino='{destino_normalizado}'."
         )
-        return self._cotar_por_api(destino_normalizado, peso, volume)
+        return self._cotar_por_api(destino_normalizado, peso, volume, temperatura_normalizada)
 
-    def _cotar_por_api(self, destino: str, peso: float, volume: float):
+    def _cotar_por_api(self, destino: str, peso: float, volume: float, temperatura: str):
         try:
             origem = "Lisboa, Portugal"
             origem_loc = self._geocode(origem)
@@ -67,7 +67,7 @@ class Cotador:
                 logger.error("Falha ao obter distância via OSRM.")
                 return None
 
-            tarifa_km, tipo_transporte = self._tarifa_por_peso_volume(peso, volume)
+            tarifa_km, tipo_transporte = self._tarifa_por_peso_volume(peso, volume, temperatura)
             if tarifa_km is None:
                 logger.warning(
                     f"Sem tarifa definida para peso={peso}kg e volume={volume}m3."
@@ -80,7 +80,7 @@ class Cotador:
                 "destino": destino,
                 "tipo_transporte": tipo_transporte,
                 "preco": preco,
-                "temperatura": "ambiente",  # fallback assume ambiente
+                "temperatura": temperatura,
                 "fonte": "api"
             }
         except Exception as e:
@@ -133,7 +133,7 @@ class Cotador:
             logger.warning(f"Falha ao consultar OSRM: {e}")
             return None
 
-    def _tarifa_por_peso_volume(self, peso: float, volume: float):
+    def _tarifa_por_peso_volume(self, peso: float, volume: float, temperatura: str):
         """Retorna (tarifa_por_km, tipo_transporte) conforme configuração privada.
         Esta informação é carregada de um ficheiro gitignored.
         """
@@ -146,6 +146,16 @@ class Cotador:
                 vol_max = float(tier.get("volume_max", 0))
                 tarifa = float(tier.get("tarifa_eur_km", 0))
                 tipo = tier.get("tipo_transporte")
+                temp_tier = tier.get("temperatura")
+                if temp_tier is None and isinstance(tipo, str):
+                    tl = tipo.lower()
+                    if "frio" in tl:
+                        temp_tier = "frio"
+                    elif "ambiente" in tl:
+                        temp_tier = "ambiente"
+                # Se o tier especifica temperatura, só aplica se coincidir
+                if temp_tier is not None and str(temp_tier).lower().strip() != str(temperatura).lower().strip():
+                    continue
                 if peso <= peso_max and volume <= vol_max:
                     return tarifa, tipo
             return None, None
